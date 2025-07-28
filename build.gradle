@@ -24,6 +24,15 @@ dependencies {
     // https://mvnrepository.com/artifact/org.seleniumhq.selenium/selenium-java
     implementation 'org.seleniumhq.selenium:selenium-java:4.21.0'
 
+    implementation 'org.apache.poi:poi-ooxml:4.1.2'
+
+    testImplementation 'org.testng:testng:7.10.2'
+    implementation 'org.seleniumhq.selenium:selenium-java:4.21.0'
+    implementation 'org.seleniumhq.selenium:selenium-devtools-v125:4.21.0'
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.14.2")
+
+
 }
 
 buildDir = 'build'
@@ -69,6 +78,7 @@ checkstyle {
 tasks.withType(Checkstyle) {
     reports {
             xml.required = true
+            xml.outputLocation = file("build/reports/checkstyle/test.xml")
             html.required = false
         }
 }

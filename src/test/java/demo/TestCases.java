@@ -1,8 +1,10 @@
 package demo;
 
+import static org.testng.Assert.assertTrue;
+
 import java.io.File;
-import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Level;
 
@@ -19,183 +21,206 @@ import org.testng.annotations.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import demo.models.HockeyTeam;
-import demo.models.OscarMovie;
 import demo.wrappers.Wrappers;
-import dev.failsafe.internal.util.Assert;
-
 
 public class TestCases {
     ChromeDriver driver;
     Wrappers wrappers;
 
-
     @Test
     public void testCase01() throws InterruptedException {
         System.out.println("TestCase01 start: Success");
-        //step : Open the website
+        // step : Open the website
+
         driver.get("https://www.scrapethissite.com/pages/");
-        Thread.sleep(2000);     
+        Thread.sleep(2000);
         System.out.println("Test step: Opened the website successfully");
-        //step : Click on the "Hockey Teams" link
+        // step : Click on the "Hockey Teams" link
+
         wrappers.clickByLinkText("Hockey Teams");
         System.out.println("Test step: Clicked on the Hockey Teams link successfully");
         Thread.sleep(2000);
-        //step : Scrape the data
-        List<HockeyTeam> teamList = new ArrayList<>();
-        System.out.println("Test step: Scraping data from the table");
-        for(int i=0; i<4; i++) {
-            List<WebElement> rows = wrappers.getTableRows();
-           
-            for(WebElement row : rows) {
-               
-                List<WebElement> cells = row.findElements(By.tagName("td"));
-                if(cells.size() < 6) {
-                    continue; // Skip rows that do not have enough cells
-                
-                }
-                String teamName = wrappers.getCellText(row, 0);
-                String year = wrappers.getCellText(row, 1);
-                String winPercentage = wrappers.getCellText(row, 5);
 
-                try{
-                    double winPerc = Double.parseDouble(winPercentage);
-                    if(winPerc < 0.40) {
-                        HockeyTeam team = new HockeyTeam(
-                            Instant.now().getEpochSecond(),
-                            teamName,
-                            year,
-                            winPercentage
-                        );
-                        teamList.add(team);
-                    }
-                }catch (NumberFormatException e) {
-                    System.err.println("Invalid win percentage format for team: " + teamName + " in year: " + year);
+        // step : Scrape the data
+        ArrayList<HashMap<String, Object>> teamList = new ArrayList<>(); // Initialize the list to hold Hashmap
+
+        WebElement clickOnPage = driver.findElement(By.xpath("(//ul[@class='pagination']/li/a)[1]"));
+        clickOnPage.click(); // Click on the first page to load the table
+        Thread.sleep(2000); // Wait for the page to load
+
+        System.out.println("Test step: Scraping data from the table");
+        for (int i = 1; i <= 4; i++) { // loops used to inspect first pages
+            List<WebElement> rows = driver.findElements(By.xpath("//tr[@class='team']")); // Get all rows in the table
+
+            for (WebElement row : rows) {
+
+                String teamName = row.findElement(By.xpath("./td[@class='name']")).getText(); // Get the team name
+                int year = Integer.parseInt(row.findElement(By.xpath("./td[@class='year']")).getText()); // Get the year
+                double winPercentage = Double
+                        .parseDouble(row.findElement(By.xpath("./td[contains(@class,'pct')]")).getText()); // Get the win percentage
+
+                long epoch = System.currentTimeMillis() / 1000; // Get the current epoch time in seconds
+                String epochTime = String.valueOf(epoch); // Convert epoch time to String
+
+                if (winPercentage < 0.4) {
+                    // create HashMap to store team data
+                    HashMap<String, Object> dataMap = new HashMap<>();
+                    dataMap.put("epochTime", epochTime);
+                    dataMap.put("teamName", teamName);
+                    dataMap.put("year", year);
+                    dataMap.put("winPercentage", winPercentage);
+
+                    // add the dataMap to the teamList
+                    teamList.add(dataMap);
                 }
+                
+
             }
-            // Click the next button if not on the last page
-            if(i < 3) {
-                wrappers.clickNextButton();
+            if (i < 4) {
+                wrappers.clickNextButton(); // Click on the next button to go to the next page
                 Thread.sleep(2000); // Wait for the next page to load
             }
+
             
         }
 
-        System.out.println("Test step: Pages 1 to 4 scraped successfully, found " + teamList.size() + " teams with win percentage < 0.40");
-            
+        System.out.println("Test step: Pages 1 to 4 scraped successfully, found " + teamList.size()
+                + " teams with win percentage < 0.40");
+        // print collected data
+        for (HashMap<String, Object> teamData : teamList) {
+            System.out.println("Epoch Time: " + teamData.get("epochTime") + "Team: " + teamData.get("teamName")
+                    + ", Year: " + teamData.get("year")
+                    + ", Win Percentage: " + teamData.get("winPercentage"));
+        }
 
-        // Your scraping logic to fill teamList...
+        ObjectMapper mapper = new ObjectMapper(); // objectMapper is a class from jackson libraray used to convert Java
 
-    // 👇 JSON creation code
-    ObjectMapper mapper = new ObjectMapper();
-    File jsonFile = new File("hockey-team-data.json");
-    try {
-        mapper.writerWithDefaultPrettyPrinter().writeValue(jsonFile, teamList);
-        System.out.println("Test step: hockey-team-data.json created with " + teamList.size() + " records");
-    } catch (Exception e) {
-        e.printStackTrace();
-        System.err.println("Failed to create hockey-team-data.json: " + e.getMessage());
+        try {
+            String userDir = System.getProperty("user.dir");
+            File jsonFile = new File(userDir + "/src/test/resources/hockey-team-data.json");
+            mapper.writerWithDefaultPrettyPrinter().writeValue(jsonFile, teamList); // Write the list to a JSON file
+            System.out.println("Test step: JSON data written to : " + jsonFile.getAbsolutePath());
+            assertTrue(jsonFile.length() != 0); // Assert that the file is created
+            // and not empty
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("Failed to create hockey-team-data.json: " + e.getMessage());
+        }
+        System.out.println("TestCase01 end: Success");
     }
-    
-    System.out.println("TestCase01 end: Success");
-}
 
-// Move these methods outside of testCase01, to be class-level methods
-
+    // Move these methods outside of testCase01, to be class-level methods
 
     @Test
     public void testCase02() throws InterruptedException {
         System.out.println("TestCase02 start: Success");
-        //step : Open the website
+
+        // step : Open the website
         driver.get("https://www.scrapethissite.com/pages/");
-        Thread.sleep(2000);     
+        Thread.sleep(2000);
         System.out.println("Test step: Opened the website successfully");
-        //step : Click on the "Oscar Movies" link   
+
+        // step : Click on the "Oscar Movies" link
         wrappers.clickByLinkText("Oscar");
         System.out.println("Test step: Clicked on the Oscar Movies link successfully");
         Thread.sleep(2000);
-        //step : Scrape the data
+        // step : Scrape the data
         System.out.println("Test step: Scraping data from the table");
-        
-        
-        List<OscarMovie> movieList = new ArrayList<>();
-    
+
+        ArrayList<HashMap<String, String>> movieList = new ArrayList<>(); // Initialize the list to hold hashmap
+
         List<WebElement> years = wrappers.getElements(By.xpath("//a[contains(@href, '#')]"));
 
-        for(WebElement year : years) {
+        for (WebElement year : years) {
             String yearText = wrappers.getText(year);
             wrappers.clickOnElement(By.linkText(yearText));
             Thread.sleep(2000); // Wait for the page to load
 
-            List<WebElement> rows = wrappers.getTableRows();
-            int count =0;
-            for(WebElement row : rows) {
-                if(count >= 5) break; // Limit to 5 records per year
-                // Ensure the row has enough cells before accessing them
-                List<WebElement> cells = row.findElements(By.tagName("td"));
-                if(cells.size() < 4) {
-                    continue; // Skip rows that do not have enough cells
-                }
-                OscarMovie movie = new OscarMovie(
-                    Instant.now().getEpochSecond(),
-                    yearText,
-                    wrappers.getCellText(row, 0),
-                    Integer.parseInt(wrappers.getCellText(row, 1)),
-                    Integer.parseInt(wrappers.getCellText(row, 2)),
-                    String.valueOf(Wrappers.isBestPictureWinner(row)) // Convert boolean to String and access statically
-                );
-                movieList.add(movie);
-                count++;
-                System.out.println(yearText + " - " + wrappers.getCellText(row, 0) + " (Winner: " + String.valueOf(Wrappers.isBestPictureWinner(row)) + ")");
-    
+            List<WebElement> rows = driver.findElements(By.xpath("//tr[@class='film']")); // Get all rows in the table
+
+            int maxMovies = Math.min(5, rows.size()); // Limit to 5 movies per year section
+
+            for (int i = 0; i < maxMovies; i++) {
+                WebElement row = rows.get(i); // Get the current row
+                String filmTitle = row.findElement(By.xpath("./td[contains(@class,'title')]")).getText(); // Get the film title
+                                                            
+                String nomination = row.findElement(By.xpath("./td[contains(@class,'nominations')]")).getText(); // Get the nomonations
+                                                                                                                 
+                String awards = row.findElement(By.xpath("./td[contains(@class,'awards')]")).getText(); // Get the awards
+                                                                                                        
+                boolean isWinnerFlag = (i == 0); // Check if the film is a winner (first row in the year section)
+                String isWinner = String.valueOf(isWinnerFlag); // Convert boolean to String
+
+                long epoch = System.currentTimeMillis() / 1000; // Get the current epoch time in seconds
+                String epochTime = String.valueOf(epoch); // Convert epoch time to String
+
+                HashMap<String, String> movie = new HashMap<>();
+                movie.put("epochTime", epochTime);
+                movie.put("year", yearText);
+                movie.put("title", filmTitle);
+                movie.put("nominations", nomination);
+                movie.put("awards", awards);
+                movie.put("isWinner", isWinner); // Add the isWinner flag to the movie object
+
+                movieList.add(movie); // Add the movie object to the list
             }
+            System.out.println("Completed processing year: " + yearText);
             System.out.println("------------------------------------------------------");
+
         }
 
+        System.out.println("Final collected data:");
+        for (HashMap<String, String> movieData : movieList) {
+            System.out.println("Epoch Time: " + movieData.get("epochTime") + ", Year: " + movieData.get("year")
+                    + ", Title: " + movieData.get("title") + ", Nominations: " + movieData.get("nominations")
+                    + ", Awards: " + movieData.get("awards") + ", Is Winner: " + movieData.get("isWinner"));
+        }
 
-
-        ObjectMapper mapper = new ObjectMapper();
+        ObjectMapper mapper = new ObjectMapper(); // objectMapper is a class from jackson libraray used to convert Java
+                                                  // objects to JSON
         try {
-            mapper.writerWithDefaultPrettyPrinter().writeValue(new File("oscar-winner-data.json"), movieList);
+            String userDir = System.getProperty("user.dir");
+            File jsonFile = new File(userDir + "/src/test/resources/oscar-winner-data.json"); // it will create a file
+
+            mapper.writerWithDefaultPrettyPrinter().writeValue(jsonFile, movieList); // Write the list to a JSON file
+            System.out.println("Test step: JSON data written to : " + jsonFile.getAbsolutePath());
+            assertTrue(jsonFile.exists() && jsonFile.length() > 0,
+                    "oscar-winner-data.json should exist and not be empty"); // empty
             System.out.println("Test step: oscar-winner-data.json created with " + movieList.size() + " records");
         } catch (Exception e) {
             e.printStackTrace();
             System.err.println("Failed to create oscar-winner-data.json: " + e.getMessage());
         }
 
-        File jsonFile = new File("oscar-winner-data.json");
-        Assert.isTrue(jsonFile.length() > 0 && jsonFile.exists(), "oscar-winner-data.json should exist after writing");
         System.out.println("TestCase02 end: Success");
     }
 
-@BeforeTest
-public void startBrowser()
-{
-    System.setProperty("java.util.logging.config.file", "logging.properties");
+    @BeforeTest
+    public void startBrowser() {
+        System.setProperty("java.util.logging.config.file", "logging.properties");
 
-    // NOT NEEDED FOR SELENIUM MANAGER
-    // WebDriverManager.chromedriver().timeout(30).setup();
+        // NOT NEEDED FOR SELENIUM MANAGER
+        // WebDriverManager.chromedriver().timeout(30).setup();
 
-    ChromeOptions options = new ChromeOptions();
-    LoggingPreferences logs = new LoggingPreferences();
+        ChromeOptions options = new ChromeOptions();
+        LoggingPreferences logs = new LoggingPreferences();
 
-    logs.enable(LogType.BROWSER, Level.ALL);
-    logs.enable(LogType.DRIVER, Level.ALL);
-    options.setCapability("goog:loggingPrefs", logs);
-    options.addArguments("--remote-allow-origins=*");
+        logs.enable(LogType.BROWSER, Level.ALL);
+        logs.enable(LogType.DRIVER, Level.ALL);
+        options.setCapability("goog:loggingPrefs", logs);
+        options.addArguments("--remote-allow-origins=*");
 
-    System.setProperty(ChromeDriverService.CHROME_DRIVER_LOG_PROPERTY, "build/chromedriver.log"); 
-    driver = new ChromeDriver(options);
+        System.setProperty(ChromeDriverService.CHROME_DRIVER_LOG_PROPERTY, "build/chromedriver.log");
+        driver = new ChromeDriver(options);
 
-    driver.manage().window().maximize();
-    wrappers = new Wrappers(driver);
-}
+        driver.manage().window().maximize();
+        wrappers = new Wrappers(driver);
+    }
 
-@AfterTest
-public void endTest()
-{
-    driver.close();
-    driver.quit();
-}
+    @AfterTest
+    public void endTest() {
+        driver.close();
+        driver.quit();
+    }
 
 }

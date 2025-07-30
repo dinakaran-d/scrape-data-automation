@@ -19,24 +19,23 @@ public class Wrappers {
      * Write your selenium wrappers here
      */
 
-     WebDriver driver;
-     WebDriverWait wait;
+    WebDriver driver;
+    WebDriverWait wait;
 
     public Wrappers(WebDriver driver) {
         this.driver = driver;
         this.wait = new WebDriverWait(driver, Duration.ofSeconds(10));
     }
+
     public void clickByLinkText(String linkText) {
         wait.until(ExpectedConditions.elementToBeClickable(By.partialLinkText(linkText))).click();
     }
 
-    public List<WebElement> getTableRows() {
-        WebElement tbody = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("table.table tbody")));
-        return tbody.findElements(By.tagName("tr"));
-    }
+
 
     public void clickNextButton() {
-        WebElement nextButton = wait.until(ExpectedConditions.elementToBeClickable(By.xpath("//a[contains(@aria-label, 'Next')]")));
+        WebElement nextButton = wait
+                .until(ExpectedConditions.elementToBeClickable(By.xpath("//a[contains(@aria-label, 'Next')]")));
         nextButton.click();
     }
 
@@ -48,7 +47,6 @@ public class Wrappers {
         }
         return cells.get(cellIndex).getText();
     }
-
 
     public void clickOnElement(By locator) {
         driver.findElement(locator).click();
@@ -62,22 +60,14 @@ public class Wrappers {
         return element.getText().trim();
     }
 
-    public static boolean isBestPictureWinner(WebElement row) {
-        WebElement bestPictureCell = row.findElement(By.cssSelector("td:nth-child(4)"));
-        String cellContent = bestPictureCell.getAttribute("innerHTML").trim();
-        return !cellContent.isEmpty();
-    }
 
     public static int parseInt(String text) {
-        try{
+        try {
             return Integer.parseInt(text.trim());
         } catch (Exception e) {
             System.out.println("Error parsing integer from text: " + text);
             return 0; // or throw an exception based on your needs
         }
     }
-
-
-
 
 }
